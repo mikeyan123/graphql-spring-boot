@@ -1,6 +1,7 @@
 package com.oembedler.moon.graphql.boot.test.graphqlJavaTools;
 
 import com.coxautodev.graphql.tools.GraphQLQueryResolver;
+import com.coxautodev.graphql.tools.GraphQLResolver;
 import com.coxautodev.graphql.tools.SchemaParserDictionary;
 import com.oembedler.moon.graphql.boot.GraphQLJavaToolsAutoConfiguration;
 import com.oembedler.moon.graphql.boot.ListSchemaStringProvider;
@@ -39,9 +40,6 @@ public class GraphQLJavaToolsAutoConfigurationTest extends AbstractAutoConfigura
     static class InterfaceConfiguration {
         class Query implements GraphQLQueryResolver {
             Interface theInterface() {
-                return new Implementation();
-            }
-            Implementation theImplementation() {
                 return new Implementation();
             }
         }
@@ -83,6 +81,79 @@ public class GraphQLJavaToolsAutoConfigurationTest extends AbstractAutoConfigura
     @Test
     public void schemaWithInterfaceLoads() {
         load(InterfaceConfiguration.class);
+
+        Assert.assertNotNull(this.getContext().getBean(GraphQLSchema.class));
+    }
+
+
+    @Configuration
+    static class DeepInterfaceConfiguration {
+        class Query implements GraphQLQueryResolver {
+            Bar bar() {
+                return new Bar();
+            }
+        }
+        class Bar {
+            Foo foo() {
+                return new Foo();
+            }
+        }
+        class Foo {
+        }
+        class FooResolver implements GraphQLResolver<Foo> {
+            Interface theInterface(Foo foo) {
+                return new Implementation();
+            }
+        }
+        interface Interface {
+            String method();
+        }
+        class Implementation implements Interface {
+            public String method() {
+                return "method";
+            }
+        }
+
+        @Bean
+        public SchemaStringProvider schemaStringProvider() {
+            ListSchemaStringProvider schemaStringProvider = new ListSchemaStringProvider();
+            schemaStringProvider.add("type Query {"
+                + "  bar:Bar!"
+                + "} "
+                + "type Bar {"
+                + "  foo:Foo!"
+                + "}"
+                + "type Foo {"
+                + "  theInterface:Interface!"
+                + "}"
+                + "interface Interface {"
+                + "  method:String!"
+                + "}"
+                + "type Implementation implements Interface {"
+                + "  method:String!"
+                + "}");
+            return schemaStringProvider;
+        }
+
+        @Bean
+        public Query query() {
+            return new Query();
+        }
+
+        @Bean
+        public FooResolver fooResolver() {
+            return new FooResolver();
+        }
+
+        @Bean
+        public SchemaParserDictionary schemaParserDictionary() {
+            return new SchemaParserDictionary().add(Implementation.class);
+        }
+    }
+
+    @Test
+    public void schemaWithDeepInterfaceLoads() {
+        load(DeepInterfaceConfiguration.class);
 
         Assert.assertNotNull(this.getContext().getBean(GraphQLSchema.class));
     }
